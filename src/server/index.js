@@ -62,6 +62,9 @@ const upload = multer({
 const handleUpload = async (ctx) => {
     try {
         console.log('收到上传请求');
+        console.log('请求头:', ctx.request.headers);
+        console.log('请求体:', ctx.request.body);
+        
         const file = ctx.request.file;
         if (!file) {
             console.log('没有文件被上传');
@@ -73,8 +76,16 @@ const handleUpload = async (ctx) => {
         console.log('文件信息:', {
             originalname: file.originalname,
             filename: file.filename,
-            path: file.path
+            path: file.path,
+            mimetype: file.mimetype,
+            size: file.size
         });
+
+        // 检查文件是否成功保存
+        if (!fs.existsSync(file.path)) {
+            console.error('文件保存失败:', file.path);
+            throw new Error('文件保存失败');
+        }
 
         // 构建相对路径
         const relativePath = path.relative(path.join(__dirname, '../../docs'), file.path);
@@ -83,10 +94,17 @@ const handleUpload = async (ctx) => {
         // 构建完整URL
         const fullUrl = `${ctx.protocol}://${ctx.host}${url}`;
 
+        console.log('文件路径信息:', {
+            relativePath,
+            url,
+            fullUrl
+        });
+
         // 构建 HTML 文件路径
         const htmlFileName = path.basename(file.path, '.md') + '.html';
         const htmlPath = path.join(__dirname, '../../docs/.vitepress/dist', htmlFileName);
         
+        console.log('HTML 文件路径:', htmlPath);
         console.log('开始构建 HTML');
         // 使用 VitePress 构建
         try {
@@ -145,7 +163,7 @@ const handleUpload = async (ctx) => {
                         fileName: file.originalname,
                         url: url,
                         fullUrl: fullUrl,
-                        htmlUrl: `${ctx.protocol}://${ctx.host}/${htmlFileName}`
+                        htmlUrl: `${ctx.protocol}://${ctx.host}/md/${htmlFileName}`
                     }
                 };
             } else {
@@ -185,7 +203,9 @@ const distPath = path.join(__dirname, '../../docs/.vitepress/dist');
 if (!fs.existsSync(distPath)) {
     console.warn('警告: VitePress 构建目录不存在，请先运行 yarn docs:build');
 } else {
-    app.use(serve(distPath));
+    app.use(serve(distPath, {
+        prefix: '/md/'
+    }));
 }
 
 // 使用路由

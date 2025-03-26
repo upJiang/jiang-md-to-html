@@ -1,5 +1,7 @@
-FROM node:18-alpine
+# 使用 Node.js 官方镜像作为基础镜像
+FROM node:18
 
+# 设置工作目录
 WORKDIR /app
 
 # 复制 package.json 和 yarn.lock
@@ -11,11 +13,15 @@ RUN yarn install
 # 复制源代码
 COPY . .
 
-# 构建应用
-RUN yarn build
+# 创建必要的目录并设置权限
+RUN mkdir -p docs/.vitepress/dist && \
+    chmod -R 777 docs
+
+# 构建 VitePress 文档
+RUN yarn docs:build
 
 # 暴露端口
 EXPOSE 5555
 
-# 启动应用
-CMD ["yarn", "dev"] 
+# 启动命令
+CMD ["node", "src/server/index.js"] 

@@ -1,8 +1,11 @@
-export default {
+module.exports = {
   title: 'Markdown to HTML',
-  description: 'Convert markdown to HTML',
+  description: 'Convert Markdown to HTML',
+  base: '/md/',
   themeConfig: {
-    nav: false,
+    nav: [
+      { text: 'Home', link: '/' }
+    ],
     sidebar: false,
     footer: false,
     docFooter: false,
