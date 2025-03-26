@@ -15,7 +15,11 @@ COPY . .
 
 # 创建必要的目录并设置权限
 RUN mkdir -p docs/.vitepress/dist && \
-    chmod -R 777 docs
+    chmod -R 777 docs && \
+    chown -R node:node /app
+
+# 切换到非 root 用户
+USER node
 
 # 暴露端口
 EXPOSE 5555

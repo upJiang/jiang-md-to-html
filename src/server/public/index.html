@@ -230,26 +230,30 @@
                     formData.append('file', selectedFile.value)
 
                     try {
-                        const response = await fetch('/upload', {
+                        const response = await fetch('/api/upload', {
                             method: 'POST',
                             body: formData
                         })
 
-                        const data = await response.json()
-                        
-                        if (data.success) {
-                            fullUrl.value = data.fullUrl
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`)
+                        }
+
+                        const result = await response.json()
+                        if (result.success) {
+                            fullUrl.value = result.data.fullUrl
                             showResult('文件上传成功！', 'success')
                             // 添加到上传历史
                             uploadHistory.value.unshift({
                                 fileName: selectedFile.value.name,
-                                url: data.fullUrl
+                                url: result.data.fullUrl
                             })
                         } else {
-                            throw new Error(data.error)
+                            throw new Error(result.error)
                         }
                     } catch (error) {
-                        showResult(`Error: ${error.message}`, 'error')
+                        console.error('上传错误:', error)
+                        showResult(`上传失败: ${error.message}`, 'error')
                     } finally {
                         isUploading.value = false
                     }

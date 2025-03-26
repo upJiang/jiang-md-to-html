@@ -15,10 +15,12 @@ app.use(async (ctx, next) => {
         await next();
     } catch (err) {
         console.error('服务器错误:', err);
+        console.error('错误堆栈:', err.stack);
         ctx.status = err.status || 500;
         ctx.body = {
             success: false,
-            error: err.message || '服务器内部错误'
+            error: err.message || '服务器内部错误',
+            details: process.env.NODE_ENV === 'development' ? err.stack : undefined
         };
     }
 });
@@ -26,16 +28,31 @@ app.use(async (ctx, next) => {
 // 日志中间件
 app.use(async (ctx, next) => {
     const start = Date.now();
+    console.log('=== 新请求开始 ===');
+    console.log(`收到请求: ${ctx.method} ${ctx.url}`);
+    console.log('请求头:', JSON.stringify(ctx.request.headers, null, 2));
+    console.log('请求体:', JSON.stringify(ctx.request.body, null, 2));
+    console.log('Content-Type:', ctx.request.headers['content-type']);
+    
     await next();
+    
     const ms = Date.now() - start;
-    console.log(`${ctx.method} ${ctx.url} - ${ms}ms`);
+    console.log(`请求完成: ${ctx.method} ${ctx.url} - ${ms}ms`);
+    console.log('响应状态:', ctx.status);
+    console.log('响应体:', JSON.stringify(ctx.body, null, 2));
+    console.log('=== 请求结束 ===\n');
 });
 
 // 配置 multer 存储
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         const uploadDir = path.join(__dirname, '../../docs');
+        console.log('上传目录路径:', uploadDir);
+        console.log('目录是否存在:', fs.existsSync(uploadDir));
+        console.log('目录权限:', fs.statSync(uploadDir).mode);
+        
         if (!fs.existsSync(uploadDir)) {
+            console.log('创建上传目录');
             fs.mkdirSync(uploadDir, { recursive: true });
         }
         cb(null, uploadDir);
@@ -43,7 +60,9 @@ const storage = multer.diskStorage({
     filename: function (req, file, cb) {
         // 生成唯一的文件名
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + path.extname(file.originalname));
+        const filename = uniqueSuffix + path.extname(file.originalname);
+        console.log('生成的文件名:', filename);
+        cb(null, filename);
     }
 });
 
@@ -61,34 +80,49 @@ const upload = multer({
 // 处理文件上传的中间件
 const handleUpload = async (ctx) => {
     try {
-        console.log('收到上传请求');
-        console.log('请求头:', ctx.request.headers);
-        console.log('请求体:', ctx.request.body);
+        console.log('=== 文件上传处理开始 ===');
+        console.log('Content-Type:', ctx.request.headers['content-type']);
+        console.log('请求头:', JSON.stringify(ctx.request.headers, null, 2));
+        console.log('请求体:', JSON.stringify(ctx.request.body, null, 2));
+        console.log('文件:', ctx.request.file);
         
-        const file = ctx.request.file;
-        if (!file) {
+        if (!ctx.request.file) {
             console.log('没有文件被上传');
             ctx.status = 400;
-            ctx.body = { success: false, error: '没有上传文件' };
+            ctx.body = { 
+                success: false, 
+                error: '没有上传文件',
+                details: '请确保使用 POST 方法，Content-Type 为 multipart/form-data，并且文件字段名为 "file"'
+            };
             return;
         }
 
         console.log('文件信息:', {
-            originalname: file.originalname,
-            filename: file.filename,
-            path: file.path,
-            mimetype: file.mimetype,
-            size: file.size
+            originalname: ctx.request.file.originalname,
+            filename: ctx.request.file.filename,
+            path: ctx.request.file.path,
+            mimetype: ctx.request.file.mimetype,
+            size: ctx.request.file.size
         });
 
         // 检查文件是否成功保存
-        if (!fs.existsSync(file.path)) {
-            console.error('文件保存失败:', file.path);
+        if (!fs.existsSync(ctx.request.file.path)) {
+            console.error('文件保存失败:', ctx.request.file.path);
             throw new Error('文件保存失败');
         }
 
+        // 检查文件权限
+        try {
+            const stats = fs.statSync(ctx.request.file.path);
+            console.log('文件权限:', stats.mode);
+            console.log('文件所有者:', stats.uid);
+            console.log('文件组:', stats.gid);
+        } catch (error) {
+            console.error('获取文件权限失败:', error);
+        }
+
         // 构建相对路径
-        const relativePath = path.relative(path.join(__dirname, '../../docs'), file.path);
+        const relativePath = path.relative(path.join(__dirname, '../../docs'), ctx.request.file.path);
         const url = `/${relativePath.replace(/\\/g, '/')}`;
         
         // 构建完整URL
@@ -101,7 +135,7 @@ const handleUpload = async (ctx) => {
         });
 
         // 构建 HTML 文件路径
-        const htmlFileName = path.basename(file.path, '.md') + '.html';
+        const htmlFileName = path.basename(ctx.request.file.path, '.md') + '.html';
         const htmlPath = path.join(__dirname, '../../docs/.vitepress/dist', htmlFileName);
         
         console.log('HTML 文件路径:', htmlPath);
@@ -128,7 +162,7 @@ const handleUpload = async (ctx) => {
 
             // 读取并修改配置文件
             let configContent = fs.readFileSync(configPath, 'utf8');
-            const title = path.basename(file.originalname, '.md');
+            const title = path.basename(ctx.request.file.originalname, '.md');
             // 修改标题的正则表达式需要更精确
             configContent = configContent.replace(
                 /title:\s*['"]([^'"]*)['"]/,
@@ -160,7 +194,7 @@ const handleUpload = async (ctx) => {
                     success: true,
                     message: '文件上传并转换成功',
                     data: {
-                        fileName: file.originalname,
+                        fileName: ctx.request.file.originalname,
                         url: url,
                         fullUrl: fullUrl,
                         htmlUrl: `${ctx.protocol}://${ctx.host}/md/${htmlFileName}`
@@ -195,7 +229,21 @@ router.post('/api/upload', upload.single('file'), handleUpload);
 
 // 测试路由
 router.get('/api/test', (ctx) => {
+    console.log('收到测试请求');
     ctx.body = { success: true, message: 'API 服务器正常运行' };
+});
+
+// 添加一个简单的测试路由
+router.get('/test', (ctx) => {
+    console.log('收到简单测试请求');
+    ctx.body = { success: true, message: '简单测试路由正常工作' };
+});
+
+// 添加一个 POST 测试路由
+router.post('/test', (ctx) => {
+    console.log('收到 POST 测试请求');
+    console.log('请求体:', ctx.request.body);
+    ctx.body = { success: true, message: 'POST 测试路由正常工作' };
 });
 
 // 静态文件服务 - 确保 VitePress 构建的文件可以被访问
