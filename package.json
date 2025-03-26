@@ -1,0 +1,30 @@
+{
+  "name": "mdtohtml",
+  "version": "1.0.0",
+  "description": "Convert markdown files to HTML with VitePress",
+  "main": "src/server/index.js",
+  "scripts": {
+    "dev": "node src/server/index.js",
+    "build": "vitepress build docs",
+    "start": "yarn build && node src/server/index.js"
+  },
+  "keywords": [
+    "markdown",
+    "html",
+    "vitepress",
+    "converter"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@koa/bodyparser": "^5.1.1",
+    "@koa/multer": "^3.0.2",
+    "@koa/router": "^13.1.0",
+    "koa": "^2.16.0",
+    "koa-router": "^13.0.1",
+    "koa-static": "^5.0.0",
+    "multer": "^1.4.5-lts.2",
+    "uuid": "^11.1.0",
+    "vitepress": "^1.6.3"
+  }
+}

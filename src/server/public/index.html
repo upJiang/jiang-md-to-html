@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown to HTML Converter</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        .upload-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .file-input {
+            padding: 20px;
+            border: 2px dashed #ddd;
+            border-radius: 4px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .file-input:hover, .file-input.dragover {
+            border-color: #2c3e50;
+            background-color: #f8f9fa;
+        }
+        button {
+            background-color: #2c3e50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #34495e;
+        }
+        button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .loading.active {
+            display: block;
+        }
+        .url-container {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            word-break: break-all;
+        }
+        .copy-button {
+            background-color: #28a745;
+            margin-left: 10px;
+            padding: 5px 10px;
+            font-size: 14px;
+        }
+        .copy-button:hover {
+            background-color: #218838;
+        }
+        .result-box {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fff;
+        }
+        .result-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        .result-content {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <h1>Markdown to HTML Converter</h1>
+            <form class="upload-form" @submit.prevent="handleSubmit">
+                <div 
+                    class="file-input" 
+                    :class="{ dragover: isDragging }"
+                    @dragover.prevent="isDragging = true"
+                    @dragleave.prevent="isDragging = false"
+                    @drop.prevent="handleDrop"
+                    @click="triggerFileInput"
+                >
+                    <p>{{ dragText }}</p>
+                    <input 
+                        type="file" 
+                        ref="fileInput" 
+                        accept=".md" 
+                        style="display: none"
+                        @change="handleFileSelect"
+                    >
+                </div>
+                <button type="submit" :disabled="!selectedFile || isUploading">
+                    {{ uploadButtonText }}
+                </button>
+            </form>
+            <div class="loading" :class="{ active: isUploading }">
+                Uploading...
+            </div>
+            <div v-if="result" class="result" :class="resultClass">
+                {{ result }}
+                <div v-if="fullUrl" class="url-container">
+                    <span>访问链接：</span>
+                    <a :href="fullUrl" target="_blank">{{ fullUrl }}</a>
+                    <button class="copy-button" @click="copyToClipboard">复制链接</button>
+                </div>
+            </div>
+            <div v-if="uploadHistory.length > 0" class="result-box">
+                <div class="result-title">最近上传记录</div>
+                <div v-for="(item, index) in uploadHistory" :key="index" class="result-content">
+                    <span>{{ item.fileName }}</span>
+                    <a :href="item.url" target="_blank">{{ item.url }}</a>
+                    <button class="copy-button" @click="copyToClipboard(item.url)">复制</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed } = Vue
+
+        createApp({
+            setup() {
+                const fileInput = ref(null)
+                const selectedFile = ref(null)
+                const isDragging = ref(false)
+                const isUploading = ref(false)
+                const result = ref('')
+                const resultClass = ref('')
+                const fullUrl = ref('')
+                const uploadHistory = ref([])
+
+                const dragText = computed(() => {
+                    return selectedFile.value 
+                        ? `Selected file: ${selectedFile.value.name}`
+                        : 'Drag and drop your Markdown file here or click to select'
+                })
+
+                const uploadButtonText = computed(() => {
+                    return isUploading.value ? 'Uploading...' : 'Convert to HTML'
+                })
+
+                const triggerFileInput = () => {
+                    fileInput.value.click()
+                }
+
+                const handleFileSelect = (event) => {
+                    const file = event.target.files[0]
+                    if (file && file.name.endsWith('.md')) {
+                        selectedFile.value = file
+                    } else {
+                        showResult('请选择有效的 Markdown 文件', 'error')
+                    }
+                }
+
+                const handleDrop = (event) => {
+                    isDragging.value = false
+                    const file = event.dataTransfer.files[0]
+                    if (file && file.name.endsWith('.md')) {
+                        selectedFile.value = file
+                    } else {
+                        showResult('请选择有效的 Markdown 文件', 'error')
+                    }
+                }
+
+                const showResult = (message, type) => {
+                    result.value = message
+                    resultClass.value = type
+                }
+
+                const copyToClipboard = async (url) => {
+                    try {
+                        await navigator.clipboard.writeText(url || fullUrl.value)
+                        showResult('链接已复制到剪贴板！', 'success')
+                    } catch (err) {
+                        showResult('复制失败，请手动复制', 'error')
+                    }
+                }
+
+                const handleSubmit = async () => {
+                    if (!selectedFile.value || isUploading.value) return
+
+                    isUploading.value = true
+                    const formData = new FormData()
+                    formData.append('file', selectedFile.value)
+
+                    try {
+                        const response = await fetch('/upload', {
+                            method: 'POST',
+                            body: formData
+                        })
+
+                        const data = await response.json()
+                        
+                        if (data.success) {
+                            fullUrl.value = data.fullUrl
+                            showResult('文件上传成功！', 'success')
+                            // 添加到上传历史
+                            uploadHistory.value.unshift({
+                                fileName: selectedFile.value.name,
+                                url: data.fullUrl
+                            })
+                        } else {
+                            throw new Error(data.error)
+                        }
+                    } catch (error) {
+                        showResult(`Error: ${error.message}`, 'error')
+                    } finally {
+                        isUploading.value = false
+                    }
+                }
+
+                return {
+                    fileInput,
+                    selectedFile,
+                    isDragging,
+                    isUploading,
+                    result,
+                    resultClass,
+                    fullUrl,
+                    uploadHistory,
+                    dragText,
+                    uploadButtonText,
+                    triggerFileInput,
+                    handleFileSelect,
+                    handleDrop,
+                    handleSubmit,
+                    copyToClipboard
+                }
+            }
+        }).mount('#app')
+    </script>
+</body>
+</html> 

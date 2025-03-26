@@ -1,0 +1,51 @@
+name: Deploy to Tencent Cloud
+
+on:
+  push:
+    branches: [ main ]  # 当推送到 main 分支时触发
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Login to Aliyun Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: registry.cn-shenzhen.aliyuncs.com
+          username: ${{ secrets.ALIYUN_USERNAME }}
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: registry.cn-shenzhen.aliyuncs.com/jiang-nest/jiang-md-to-html:latest
+          cache-from: type=registry,ref=registry.cn-shenzhen.aliyuncs.com/jiang-nest/jiang-md-to-html:buildcache
+          cache-to: type=registry,ref=registry.cn-shenzhen.aliyuncs.com/jiang-nest/jiang-md-to-html:buildcache,mode=max
+
+      - name: Deploy to Tencent Cloud
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.TENCENT_HOST }}
+          username: ${{ secrets.TENCENT_USERNAME }}
+          key: ${{ secrets.TENCENT_SSH_KEY }}
+          script: |
+            # 登录阿里云容器镜像服务
+            docker login --username=${{ secrets.ALIYUN_USERNAME }} --password=${{ secrets.ALIYUN_PASSWORD }} registry.cn-shenzhen.aliyuncs.com
+            
+            # 拉取最新镜像
+            docker pull registry.cn-shenzhen.aliyuncs.com/jiang-nest/jiang-md-to-html:latest
+            
+            # 停止并删除旧容器
+            docker stop jiang-md-to-html || true
+            docker rm jiang-md-to-html || true
+            
+            # 运行新容器
+            docker run -d \
+              --name jiang-md-to-html \
+              --restart always \
+              -p 3000:3000 \
+              registry.cn-shenzhen.aliyuncs.com/jiang-nest/jiang-md-to-html:latest 
