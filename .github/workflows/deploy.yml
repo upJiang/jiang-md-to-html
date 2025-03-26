@@ -8,17 +8,17 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v2
 
       - name: Login to Aliyun Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v1
         with:
           registry: registry.cn-shenzhen.aliyuncs.com
           username: ${{ secrets.ALIYUN_USERNAME }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v2
         with:
           context: .
           push: true
@@ -44,6 +44,5 @@ jobs:
             # 运行新容器
             docker run -d \
               --name jiang-md-to-html \
-              --restart always \
-              -p 3000:3000 \
+              -p 5555:5555 \
               registry.cn-shenzhen.aliyuncs.com/jiang-nest/jiang-md-to-html:latest 

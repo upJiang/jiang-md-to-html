@@ -191,7 +191,7 @@ if (!fs.existsSync(distPath)) {
 // 使用路由
 app.use(router.routes()).use(router.allowedMethods());
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5555;
 app.listen(PORT, () => {
     console.log(`服务器运行在 http://localhost:${PORT}`);
     console.log(`API 端点: http://localhost:${PORT}/api/upload`);
