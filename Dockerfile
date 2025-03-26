@@ -4,6 +4,10 @@ FROM node:18
 # 设置工作目录
 WORKDIR /app
 
+# 创建 yarn 缓存目录并设置权限
+RUN mkdir -p /home/node/.cache/yarn && \
+    chown -R node:node /home/node/.cache
+
 # 复制 package.json 和 yarn.lock
 COPY package.json yarn.lock ./
 
@@ -20,6 +24,9 @@ RUN mkdir -p docs/.vitepress/dist && \
 
 # 切换到非 root 用户
 USER node
+
+# 设置 yarn 缓存目录
+ENV YARN_CACHE_FOLDER=/home/node/.cache/yarn
 
 # 暴露端口
 EXPOSE 5555
