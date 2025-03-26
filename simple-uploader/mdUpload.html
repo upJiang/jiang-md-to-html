@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Markdown文件上传</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <style>
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f5f7fa;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .container {
+      background-color: #fff;
+      border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+      padding: 2rem;
+      width: 90%;
+      max-width: 600px;
+    }
+    h1 {
+      color: #2c3e50;
+      text-align: center;
+      margin-bottom: 2rem;
+      font-weight: 600;
+    }
+    .upload-area {
+      border: 2px dashed #dcdfe6;
+      border-radius: 8px;
+      padding: 2rem;
+      text-align: center;
+      margin-bottom: 1.5rem;
+      transition: all 0.3s;
+      background-color: #f9fafc;
+    }
+    .upload-area:hover, .upload-area.dragover {
+      border-color: #409eff;
+      background-color: #ecf5ff;
+    }
+    .upload-text {
+      color: #606266;
+      margin-bottom: 1rem;
+    }
+    .upload-info {
+      font-size: 0.9rem;
+      color: #909399;
+    }
+    .btn {
+      display: inline-block;
+      padding: 0.75rem 1.5rem;
+      border-radius: 5px;
+      border: none;
+      background-color: #409eff;
+      color: white;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-top: 1rem;
+    }
+    .btn:hover {
+      background-color: #66b1ff;
+    }
+    .file-input {
+      display: none;
+    }
+    .selected-file {
+      margin-top: 1rem;
+      padding: 0.75rem;
+      border-radius: 5px;
+      background-color: #f0f9eb;
+      color: #67c23a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .progress-container {
+      margin-top: 1.5rem;
+      height: 8px;
+      background-color: #ebeef5;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background-color: #409eff;
+      border-radius: 4px;
+      transition: width 0.3s;
+    }
+    .result-container {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      border-radius: 5px;
+      background-color: #f0f9eb;
+      color: #67c23a;
+    }
+    .result-url {
+      word-break: break-all;
+      margin-top: 0.5rem;
+      padding: 0.75rem;
+      background-color: #f5f7fa;
+      border-radius: 4px;
+      border: 1px solid #e4e7ed;
+    }
+    .copy-btn {
+      border: none;
+      background-color: #67c23a;
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      margin-top: 0.5rem;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .copy-btn:hover {
+      background-color: #85ce61;
+    }
+    .error-message {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      border-radius: 5px;
+      background-color: #fef0f0;
+      color: #f56c6c;
+    }
+    
+    /* 移动设备响应式优化 */
+    @media (max-width: 768px) {
+      .container {
+        padding: 1.5rem;
+        width: 95%;
+      }
+      
+      h1 {
+        font-size: 1.5rem;
+        margin-bottom: 1.5rem;
+      }
+      
+      .upload-area {
+        padding: 1.5rem;
+      }
+      
+      .btn {
+        padding: 0.6rem 1.2rem;
+        font-size: 0.95rem;
+      }
+      
+      .selected-file {
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      
+      .selected-file .btn {
+        width: 100%;
+        margin-top: 0.5rem;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .container {
+        padding: 1rem;
+      }
+      
+      h1 {
+        font-size: 1.3rem;
+        margin-bottom: 1rem;
+      }
+      
+      .upload-area {
+        padding: 1rem;
+      }
+      
+      .upload-text {
+        font-size: 0.9rem;
+      }
+      
+      .upload-info {
+        font-size: 0.8rem;
+      }
+      
+      .btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app" class="container">
+    <h1>Markdown文件上传</h1>
+    
+    <div 
+      class="upload-area"
+      :class="{ 'dragover': isDragging }"
+      @dragover.prevent="isDragging = true"
+      @dragleave.prevent="isDragging = false"
+      @drop.prevent="onFileDrop">
+      <p class="upload-text">拖拽Markdown文件到此处，或</p>
+      <input 
+        type="file" 
+        class="file-input" 
+        ref="fileInput"
+        accept=".md,.markdown" 
+        @change="onFileSelected">
+      <button class="btn" @click="$refs.fileInput.click()">选择文件</button>
+      <p class="upload-info">只支持Markdown文件 (.md, .markdown)</p>
+    </div>
+    
+    <div v-if="selectedFile" class="selected-file">
+      <span>已选择: {{ selectedFile.name }}</span>
+      <button class="btn" @click="uploadWithRetry" :disabled="uploading">上传</button>
+    </div>
+    
+    <div v-if="uploading" class="progress-container">
+      <div class="progress-bar" :style="{ width: uploadProgress + '%' }"></div>
+    </div>
+    
+    <div v-if="error" class="error-message">
+      {{ error }}
+    </div>
+    
+    <div v-if="uploadResult" class="result-container">
+      <h3>上传成功!</h3>
+      <p>生成的HTML文件URL:</p>
+      <div class="result-url">{{ uploadResult.url }}</div>
+      <button class="copy-btn" @click="copyUrl">复制链接</button>
+      
+      <div v-if="uploadResult.fullUrl" style="margin-top: 1rem;">
+        <p>完整URL:</p>
+        <div class="result-url">{{ uploadResult.fullUrl }}</div>
+        <button class="copy-btn" @click="copyFullUrl">复制完整链接</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+    
+    createApp({
+      setup() {
+        const fileInput = ref(null);
+        const selectedFile = ref(null);
+        const uploading = ref(false);
+        const uploadProgress = ref(0);
+        const uploadResult = ref(null);
+        const error = ref(null);
+        const isDragging = ref(false);
+        
+        const onFileSelected = (event) => {
+          const files = event.target.files;
+          if (files.length > 0) {
+            const file = files[0];
+            if (file.name.endsWith('.md') || file.name.endsWith('.markdown')) {
+              selectedFile.value = file;
+              error.value = null;
+            } else {
+              error.value = '请选择Markdown文件 (.md, .markdown)';
+              event.target.value = null;
+            }
+          }
+        };
+        
+        const onFileDrop = (event) => {
+          isDragging.value = false;
+          const files = event.dataTransfer.files;
+          if (files.length > 0) {
+            const file = files[0];
+            if (file.name.endsWith('.md') || file.name.endsWith('.markdown')) {
+              selectedFile.value = file;
+              error.value = null;
+            } else {
+              error.value = '请选择Markdown文件 (.md, .markdown)';
+            }
+          }
+        };
+        
+        const uploadFile = async () => {
+          if (!selectedFile.value) return;
+          
+          uploading.value = true;
+          uploadProgress.value = 0;
+          error.value = null;
+          
+          const formData = new FormData();
+          formData.append('file', selectedFile.value);
+          
+          try {
+            const response = await axios.post('https://junfeng530.xyz/md/api/upload', formData, {
+              headers: {
+                'Content-Type': 'multipart/form-data'
+              },
+              onUploadProgress: (progressEvent) => {
+                const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                uploadProgress.value = percentCompleted;
+              },
+              withCredentials: false,
+              timeout: 60000
+            });
+            
+            if (response.data && response.data.success) {
+              uploadResult.value = {
+                url: response.data.url,
+                fullUrl: response.data.fullUrl
+              };
+            } else {
+              error.value = '上传失败: ' + (response.data.error || '未知错误');
+            }
+          } catch (err) {
+            console.error('上传错误:', err);
+            
+            if (err.response) {
+              error.value = `上传失败 (${err.response.status}): ${err.response.data?.error || err.message || '服务器返回错误'}`;
+            } else if (err.request) {
+              error.value = '上传失败: 服务器没有响应，请检查网络连接或稍后再试';
+            } else {
+              error.value = '上传失败: ' + err.message;
+            }
+          } finally {
+            uploading.value = false;
+          }
+        };
+        
+        const tryAlternativeUpload = async () => {
+          if (!selectedFile.value) return;
+          
+          uploading.value = true;
+          uploadProgress.value = 0;
+          error.value = null;
+          
+          const formData = new FormData();
+          formData.append('file', selectedFile.value);
+          
+          try {
+            const response = await fetch('https://junfeng530.xyz/md/api/upload', {
+              method: 'POST',
+              body: formData,
+              credentials: 'omit'
+            });
+            
+            if (!response.ok) {
+              throw new Error(`服务器返回错误状态码 ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data && data.success) {
+              uploadResult.value = {
+                url: data.url,
+                fullUrl: data.fullUrl
+              };
+            } else {
+              error.value = '上传失败: ' + (data.error || '未知错误');
+            }
+          } catch (err) {
+            console.error('备用上传方法错误:', err);
+            error.value = '备用上传方法失败: ' + err.message;
+          } finally {
+            uploading.value = false;
+          }
+        };
+        
+        const uploadWithRetry = async () => {
+          try {
+            await uploadFile();
+          } catch (err) {
+            console.error('主上传方法失败，尝试备用方法:', err);
+            await tryAlternativeUpload();
+          }
+        };
+        
+        const copyUrl = () => {
+          if (uploadResult.value && uploadResult.value.url) {
+            navigator.clipboard.writeText(uploadResult.value.url)
+              .then(() => alert('链接已复制到剪贴板'))
+              .catch(err => console.error('复制失败:', err));
+          }
+        };
+        
+        const copyFullUrl = () => {
+          if (uploadResult.value && uploadResult.value.fullUrl) {
+            navigator.clipboard.writeText(uploadResult.value.fullUrl)
+              .then(() => alert('完整链接已复制到剪贴板'))
+              .catch(err => console.error('复制失败:', err));
+          }
+        };
+        
+        return {
+          fileInput,
+          selectedFile,
+          uploading,
+          uploadProgress,
+          uploadResult,
+          error,
+          isDragging,
+          onFileSelected,
+          onFileDrop,
+          uploadWithRetry,
+          copyUrl,
+          copyFullUrl
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html> 
