@@ -25,6 +25,26 @@ app.use(async (ctx, next) => {
     }
 });
 
+// CORS 中间件 - 添加在日志中间件之前
+app.use(async (ctx, next) => {
+    // 允许所有来源
+    ctx.set('Access-Control-Allow-Origin', '*');
+    // 允许的 HTTP 方法
+    ctx.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
+    // 允许的请求头
+    ctx.set('Access-Control-Allow-Headers', '*');
+    // 预检请求的有效期
+    ctx.set('Access-Control-Max-Age', '86400');
+    
+    // 处理 OPTIONS 请求
+    if (ctx.method === 'OPTIONS') {
+        ctx.status = 204;
+        return;
+    }
+    
+    await next();
+});
+
 // 日志中间件
 app.use(async (ctx, next) => {
     const start = Date.now();
