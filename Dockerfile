@@ -1,5 +1,5 @@
-# 使用 Node.js 官方镜像作为基础镜像
-FROM node:18
+# 使用 Node.js Alpine 镜像作为基础镜像
+FROM node:18-alpine
 
 # 设置工作目录
 WORKDIR /app
@@ -11,8 +11,9 @@ RUN mkdir -p /home/node/.cache/yarn && \
 # 复制 package.json 和 yarn.lock
 COPY package.json yarn.lock ./
 
-# 安装依赖
-RUN yarn install
+# 安装依赖并清理缓存
+RUN yarn install && \
+    yarn cache clean
 
 # 复制源代码
 COPY . .
