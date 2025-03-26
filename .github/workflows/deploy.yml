@@ -23,8 +23,6 @@ jobs:
           context: .
           push: true
           tags: registry.cn-shenzhen.aliyuncs.com/jiang-nest/jiang-md-to-html:latest
-          cache-from: type=registry,ref=registry.cn-shenzhen.aliyuncs.com/jiang-nest/jiang-md-to-html:buildcache
-          cache-to: type=registry,ref=registry.cn-shenzhen.aliyuncs.com/jiang-nest/jiang-md-to-html:buildcache,mode=max
 
       - name: Deploy to Tencent Cloud
         uses: appleboy/ssh-action@master
