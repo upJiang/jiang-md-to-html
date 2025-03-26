@@ -17,11 +17,8 @@ COPY . .
 RUN mkdir -p docs/.vitepress/dist && \
     chmod -R 777 docs
 
-# 构建 VitePress 文档
-RUN yarn docs:build
-
 # 暴露端口
 EXPOSE 5555
 
-# 启动命令
-CMD ["node", "src/server/index.js"] 
+# 启动命令 - 使用 start 命令启动服务
+CMD ["yarn", "start"] 
